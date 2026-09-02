@@ -3,4 +3,4 @@
 from .node import MCTSNode
 from .tree import MCTSEngine
 
-__all__ = ["MCTSNode", "MCTSEngine"]
+__all__ = ["MCTSEngine", "MCTSNode"]

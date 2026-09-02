@@ -14,12 +14,10 @@ Covers 500+ automated negotiation scenarios:
 
 from __future__ import annotations
 
-import math
-import os
 import random
 import time
+
 import pytest
-from typing import List
 
 from negotiator.actions import Action
 from negotiator.config import NegotiatorConfig
@@ -29,7 +27,6 @@ from negotiator.state import (
     UserIntent,
     UserResponse,
     classify_cart_value,
-    make_initial_state,
 )
 
 
@@ -53,16 +50,33 @@ def test_boundary_cart_values(temp_db_path):
     engine = NegotiationEngine(config=config, db_path=temp_db_path)
 
     extreme_values = [
-        -1000.0, -50.0, -0.01, 0.0, 0.0001, 0.50, 49.99, 50.0,
-        149.99, 150.0, 499.99, 500.0, 100_000.0, 1_000_000.0, 1e9,
-        float("nan"), float("inf"), float("-inf")
+        -1000.0,
+        -50.0,
+        -0.01,
+        0.0,
+        0.0001,
+        0.50,
+        49.99,
+        50.0,
+        149.99,
+        150.0,
+        499.99,
+        500.0,
+        100_000.0,
+        1_000_000.0,
+        1e9,
+        float("nan"),
+        float("inf"),
+        float("-inf"),
     ]
 
     for val in extreme_values:
         bin_val = classify_cart_value(val, config)
         assert isinstance(bin_val, CartValueBin)
 
-        res = engine.start_session(cart_value=val, intent=UserIntent.CONSIDERING, seed=42)
+        res = engine.start_session(
+            cart_value=val, intent=UserIntent.CONSIDERING, seed=42
+        )
         assert res["status"] == "active"
         assert res["discount_pct"] <= config.DISCOUNT_MAX
         assert res["action"] in [a.name for a in Action]
@@ -96,12 +110,12 @@ def test_malformed_string_inputs(temp_db_path):
 def test_adversarial_bargaining_bot_and_invariants(temp_db_path):
     """
     Run 500+ automated adversarial customer sessions.
-    
+
     Adversarial Personas:
       - 200 Relentless Rejectors: spam REJECT for 10 turns.
       - 200 Aggressive Counter-Offerers: spam COUNTER for 10 turns.
       - 100 Stochastic Fuzzers: random mix of REJECT/COUNTER/ACCEPT.
-    
+
     Safety Invariant Verification:
       1. Cumulative discount NEVER exceeds 25% (discount_pct <= 25).
       2. All decisions logged to SQLite with unbroken sequential turns (0, 1, ...).
@@ -110,12 +124,12 @@ def test_adversarial_bargaining_bot_and_invariants(temp_db_path):
     config = NegotiatorConfig(BURN_IN_ACTIVE=False, MCTS_ITERATIONS=300)
     engine = NegotiationEngine(config=config, db_path=temp_db_path)
 
-    latencies_ms: List[float] = []
+    latencies_ms: list[float] = []
     total_turns_executed = 0
     sessions_run = 0
 
     all_intents = list(UserIntent)
-    
+
     # ── 200 Relentless Rejectors ─────────────────────────────────────────
     for i in range(200):
         intent = all_intents[i % len(all_intents)]
@@ -124,21 +138,27 @@ def test_adversarial_bargaining_bot_and_invariants(temp_db_path):
         t0 = time.perf_counter()
         res = engine.start_session(cart_value=cart_val, intent=intent, seed=i)
         latencies_ms.append((time.perf_counter() - t0) * 1000)
-        
+
         sid = res["session_id"]
         total_turns_executed += 1
         sessions_run += 1
 
-        assert res["discount_pct"] <= config.DISCOUNT_MAX, f"Discount breached at turn 0: {res['discount_pct']}%"
+        assert res["discount_pct"] <= config.DISCOUNT_MAX, (
+            f"Discount breached at turn 0: {res['discount_pct']}%"
+        )
 
         # Spam REJECT for 10 consecutive turns
         for turn_idx in range(1, 11):
             t0 = time.perf_counter()
-            res = engine.continue_session(session_id=sid, user_response=UserResponse.REJECT)
+            res = engine.continue_session(
+                session_id=sid, user_response=UserResponse.REJECT
+            )
             latencies_ms.append((time.perf_counter() - t0) * 1000)
             total_turns_executed += 1
 
-            assert res["discount_pct"] <= config.DISCOUNT_MAX, f"Discount breached at turn {turn_idx}: {res['discount_pct']}%"
+            assert res["discount_pct"] <= config.DISCOUNT_MAX, (
+                f"Discount breached at turn {turn_idx}: {res['discount_pct']}%"
+            )
             if res["status"] == "terminal":
                 break
 
@@ -150,7 +170,7 @@ def test_adversarial_bargaining_bot_and_invariants(temp_db_path):
         t0 = time.perf_counter()
         res = engine.start_session(cart_value=cart_val, intent=intent, seed=1000 + i)
         latencies_ms.append((time.perf_counter() - t0) * 1000)
-        
+
         sid = res["session_id"]
         total_turns_executed += 1
         sessions_run += 1
@@ -160,7 +180,9 @@ def test_adversarial_bargaining_bot_and_invariants(temp_db_path):
         # Spam COUNTER for 10 consecutive turns
         for turn_idx in range(1, 11):
             t0 = time.perf_counter()
-            res = engine.continue_session(session_id=sid, user_response=UserResponse.COUNTER)
+            res = engine.continue_session(
+                session_id=sid, user_response=UserResponse.COUNTER
+            )
             latencies_ms.append((time.perf_counter() - t0) * 1000)
             total_turns_executed += 1
 
@@ -177,7 +199,7 @@ def test_adversarial_bargaining_bot_and_invariants(temp_db_path):
         t0 = time.perf_counter()
         res = engine.start_session(cart_value=cart_val, intent=intent, seed=2000 + i)
         latencies_ms.append((time.perf_counter() - t0) * 1000)
-        
+
         sid = res["session_id"]
         total_turns_executed += 1
         sessions_run += 1
@@ -197,7 +219,9 @@ def test_adversarial_bargaining_bot_and_invariants(temp_db_path):
 
     # ── Verification of Invariants ───────────────────────────────────────
     assert sessions_run == 500, f"Expected 500 sessions, ran {sessions_run}"
-    assert total_turns_executed > 1500, f"Expected >1500 turns, ran {total_turns_executed}"
+    assert total_turns_executed > 1500, (
+        f"Expected >1500 turns, ran {total_turns_executed}"
+    )
 
     # Latency p95 assertion
     latencies_sorted = sorted(latencies_ms)
@@ -220,7 +244,9 @@ def test_adversarial_bargaining_bot_and_invariants(temp_db_path):
         audit_trail = engine.get_audit_log(test_sid)
         assert len(audit_trail) >= 1, f"Audit trail empty for session {test_sid}"
         for turn_idx, record in enumerate(audit_trail):
-            assert record["turn"] == turn_idx, f"Unbroken turn order failed in {test_sid}: expected {turn_idx}, got {record['turn']}"
+            assert record["turn"] == turn_idx, (
+                f"Unbroken turn order failed in {test_sid}: expected {turn_idx}, got {record['turn']}"
+            )
             assert record["resulting_discount_pct"] <= 25
 
 
@@ -235,9 +261,13 @@ def test_ready_to_buy_margin_protection(temp_db_path):
     # 20 READY_TO_BUY customers
     hold_or_cs_count = 0
     for i in range(20):
-        res = engine.start_session(cart_value=600.0, intent=UserIntent.READY_TO_BUY, seed=500 + i)
+        res = engine.start_session(
+            cart_value=600.0, intent=UserIntent.READY_TO_BUY, seed=500 + i
+        )
         if res["action"] in ("HOLD", "CROSS_SELL"):
             hold_or_cs_count += 1
 
     # Overwhelming majority of initial moves to ready buyers must protect margin
-    assert hold_or_cs_count >= 16, f"Expected >=80% margin-protective moves for READY_TO_BUY, got {hold_or_cs_count}/20"
+    assert hold_or_cs_count >= 16, (
+        f"Expected >=80% margin-protective moves for READY_TO_BUY, got {hold_or_cs_count}/20"
+    )

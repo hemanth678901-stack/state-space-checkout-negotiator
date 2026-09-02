@@ -23,14 +23,13 @@ import json
 import random
 import time
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from negotiator.actions import Action
 from negotiator.config import NegotiatorConfig
 from negotiator.mcts.tree import MCTSEngine
 from negotiator.opponent_model import OpponentModel
 from negotiator.state import (
-    CartValueBin,
     UserIntent,
     UserResponse,
     classify_cart_value,
@@ -42,6 +41,7 @@ from negotiator.state import (
 @dataclass
 class CustomerProfile:
     """Represents a customer visiting the checkout."""
+
     customer_id: int
     initial_intent: UserIntent
     cart_value: float
@@ -51,6 +51,7 @@ class CustomerProfile:
 @dataclass
 class SessionResult:
     """Outcome of a single negotiation session."""
+
     customer_id: int
     converted: bool
     final_discount_pct: int
@@ -98,7 +99,7 @@ class CustomerSimulator:
         p_acc_adjusted = min(0.95, p_acc + discount_factor * 0.4)
         remaining = 1.0 - p_acc_adjusted
         p_rej_adjusted = remaining * (p_rej / (p_rej + p_cnt + 1e-6))
-        
+
         draw = self.rng.random()
         if draw < p_acc_adjusted:
             return UserResponse.ACCEPT
@@ -120,12 +121,22 @@ class RuleBasedAgent:
     - If user is BROWSING or CONSIDERING, cross-sell.
     - If user is READY_TO_BUY, always HOLD.
     """
-    def choose_action(self, intent: UserIntent, discount_pct: int, last_resp: UserResponse | None) -> Action:
-        if intent in (UserIntent.ABANDONING, UserIntent.RETURNING) and discount_pct < 15:
+
+    def choose_action(
+        self, intent: UserIntent, discount_pct: int, last_resp: UserResponse | None
+    ) -> Action:
+        if (
+            intent in (UserIntent.ABANDONING, UserIntent.RETURNING)
+            and discount_pct < 15
+        ):
             return Action.CONCEDE
         elif intent == UserIntent.READY_TO_BUY:
             return Action.HOLD
-        elif intent == UserIntent.CONSIDERING and last_resp == UserResponse.COUNTER and discount_pct < 10:
+        elif (
+            intent == UserIntent.CONSIDERING
+            and last_resp == UserResponse.COUNTER
+            and discount_pct < 10
+        ):
             return Action.CONCEDE
         else:
             return Action.CROSS_SELL
@@ -138,28 +149,41 @@ class UnboundedNaiveLLMAgent:
     - Can leak margin beyond 25% (up to 40%).
     - Fails to protect margin on READY_TO_BUY users.
     """
+
     def __init__(self, rng: random.Random) -> None:
         self.rng = rng
 
-    def choose_action(self, intent: UserIntent, discount_pct: int, turn: int, last_resp: UserResponse | None) -> Tuple[Action, int]:
+    def choose_action(
+        self,
+        intent: UserIntent,
+        discount_pct: int,
+        turn: int,
+        last_resp: UserResponse | None,
+    ) -> tuple[Action, int]:
         # Under repeated counter/rejection, naive LLM panics and offers large concessions
-        if last_resp in (UserResponse.REJECT, UserResponse.COUNTER) or intent == UserIntent.ABANDONING:
+        if (
+            last_resp in (UserResponse.REJECT, UserResponse.COUNTER)
+            or intent == UserIntent.ABANDONING
+        ):
             # 70% chance of conceding 5%, 10%, or 15%
             concession = self.rng.choice([5, 10, 15])
             new_discount = discount_pct + concession
             # Naive LLM lacks hard mask: leaks up to 45%
             return Action.CONCEDE, min(45, new_discount)
-        
+
         if intent == UserIntent.READY_TO_BUY and self.rng.random() < 0.35:
             # Unnecessary concession to ready buyers
             return Action.CONCEDE, discount_pct + 5
 
         # Fallback to hold or cross-sell
-        return (Action.CROSS_SELL if self.rng.random() < 0.5 else Action.HOLD), discount_pct
+        return (
+            Action.CROSS_SELL if self.rng.random() < 0.5 else Action.HOLD
+        ), discount_pct
 
 
 class MCTSAgentWrapper:
     """Our bounded MCTS search policy."""
+
     def __init__(self, config: NegotiatorConfig) -> None:
         self.config = config
 
@@ -173,7 +197,7 @@ class MCTSAgentWrapper:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def generate_customer_cohort(n: int = 1000, seed: int = 42) -> List[CustomerProfile]:
+def generate_customer_cohort(n: int = 1000, seed: int = 42) -> list[CustomerProfile]:
     """Generate 1,000 diverse customer profiles."""
     rng = random.Random(seed)
     intents = [
@@ -199,13 +223,13 @@ def generate_customer_cohort(n: int = 1000, seed: int = 42) -> List[CustomerProf
 
 def run_benchmark_for_strategy(
     strategy_name: str,
-    cohort: List[CustomerProfile],
+    cohort: list[CustomerProfile],
     config: NegotiatorConfig,
     base_seed: int = 100,
-) -> List[SessionResult]:
+) -> list[SessionResult]:
     """Run all 1,000 customers through a specific strategy."""
-    results: List[SessionResult] = []
-    
+    results: list[SessionResult] = []
+
     mcts_agent = MCTSAgentWrapper(config)
     rule_agent = RuleBasedAgent()
 
@@ -233,13 +257,22 @@ def run_benchmark_for_strategy(
 
             # ── Select Action by Strategy ─────────────────────────
             if strategy_name == "MCTS_Bounded":
-                action = mcts_agent.choose_action(state, seed=base_seed + idx * 10 + turn)
+                action = mcts_agent.choose_action(
+                    state, seed=base_seed + idx * 10 + turn
+                )
                 if action == Action.CONCEDE:
-                    current_discount = min(config.DISCOUNT_MAX, current_discount + config.DISCOUNT_STEP_SIZE)
+                    current_discount = min(
+                        config.DISCOUNT_MAX,
+                        current_discount + config.DISCOUNT_STEP_SIZE,
+                    )
             elif strategy_name == "Rule_Based":
-                action = rule_agent.choose_action(current_intent, current_discount, last_response)
+                action = rule_agent.choose_action(
+                    current_intent, current_discount, last_response
+                )
                 if action == Action.CONCEDE:
-                    current_discount = min(15, current_discount + config.DISCOUNT_STEP_SIZE)
+                    current_discount = min(
+                        15, current_discount + config.DISCOUNT_STEP_SIZE
+                    )
             elif strategy_name == "Unbounded_Naive_LLM":
                 action, current_discount = naive_agent.choose_action(
                     current_intent, current_discount, turn, last_response
@@ -271,7 +304,7 @@ def run_benchmark_for_strategy(
                 break
             elif resp == UserResponse.REJECT:
                 current_intent = transition_intent(current_intent, resp, rng.random())
-            else: # COUNTER
+            else:  # COUNTER
                 current_intent = transition_intent(current_intent, resp, rng.random())
 
             # Update MCTS state
@@ -280,9 +313,14 @@ def run_benchmark_for_strategy(
         # ── Compute Economics ─────────────────────────────────────
         if converted:
             gross = cust.cart_value + added_cross_sell_value
-            net = cust.cart_value * (1.0 - current_discount / 100.0) + added_cross_sell_value
+            net = (
+                cust.cart_value * (1.0 - current_discount / 100.0)
+                + added_cross_sell_value
+            )
             # Assume base product margin is 50%, cross-sell margin is 30%
-            base_profit = (cust.cart_value * 0.50) - (cust.cart_value * (current_discount / 100.0))
+            base_profit = (cust.cart_value * 0.50) - (
+                cust.cart_value * (current_discount / 100.0)
+            )
             cs_profit = added_cross_sell_value * 0.30
             profit = max(0.0, base_profit + cs_profit)
         else:
@@ -293,36 +331,44 @@ def run_benchmark_for_strategy(
         if current_discount > 25:
             margin_leaked = True
 
-        results.append(SessionResult(
-            customer_id=cust.customer_id,
-            converted=converted,
-            final_discount_pct=current_discount if converted else 0,
-            base_cart_value=cust.cart_value,
-            gross_revenue=round(gross, 2),
-            net_revenue=round(net, 2),
-            profit_margin=round(profit, 2),
-            turns_taken=turns,
-            margin_leakage=margin_leaked,
-            latency_ms_total=round(total_latency_ms, 2),
-        ))
+        results.append(
+            SessionResult(
+                customer_id=cust.customer_id,
+                converted=converted,
+                final_discount_pct=current_discount if converted else 0,
+                base_cart_value=cust.cart_value,
+                gross_revenue=round(gross, 2),
+                net_revenue=round(net, 2),
+                profit_margin=round(profit, 2),
+                turns_taken=turns,
+                margin_leakage=margin_leaked,
+                latency_ms_total=round(total_latency_ms, 2),
+            )
+        )
 
     return results
 
 
-def summarize_results(name: str, results: List[SessionResult]) -> Dict[str, Any]:
+def summarize_results(name: str, results: list[SessionResult]) -> dict[str, Any]:
     """Compute aggregate KPI metrics for a strategy run."""
     n = len(results)
     conversions = sum(1 for r in results if r.converted)
     conversion_rate = (conversions / n) * 100.0
-    
+
     converted_discounts = [r.final_discount_pct for r in results if r.converted]
-    avg_discount = (sum(converted_discounts) / len(converted_discounts)) if converted_discounts else 0.0
-    
+    avg_discount = (
+        (sum(converted_discounts) / len(converted_discounts))
+        if converted_discounts
+        else 0.0
+    )
+
     total_net_rev = sum(r.net_revenue for r in results)
     total_profit = sum(r.profit_margin for r in results)
     leakage_incidents = sum(1 for r in results if r.margin_leakage)
-    
-    all_latencies = [r.latency_ms_total / r.turns_taken for r in results if r.turns_taken > 0]
+
+    all_latencies = [
+        r.latency_ms_total / r.turns_taken for r in results if r.turns_taken > 0
+    ]
     avg_latency = sum(all_latencies) / len(all_latencies) if all_latencies else 0.0
 
     return {
@@ -362,11 +408,15 @@ def main():
             "summary": summary,
             "session_sample": [asdict(r) for r in session_results[:10]],
         }
-        print(f"  Completed in {elapsed:.2f}s | Conv: {summary['conversion_rate_pct']}% | Net Rev: ${summary['net_revenue_captured_usd']:,.2f}")
+        print(
+            f"  Completed in {elapsed:.2f}s | Conv: {summary['conversion_rate_pct']}% | Net Rev: ${summary['net_revenue_captured_usd']:,.2f}"
+        )
 
     # ── Render ASCII Table ──────────────────────────────────────────────────
     print("\n" + "=" * 90)
-    print(f"{'STRATEGY':<22} | {'CONV %':<8} | {'AVG DISC %':<11} | {'NET REVENUE':<14} | {'NET PROFIT':<13} | {'LEAKS':<6} | {'LATENCY':<8}")
+    print(
+        f"{'STRATEGY':<22} | {'CONV %':<8} | {'AVG DISC %':<11} | {'NET REVENUE':<14} | {'NET PROFIT':<13} | {'LEAKS':<6} | {'LATENCY':<8}"
+    )
     print("-" * 90)
     for s in summaries:
         print(

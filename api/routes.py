@@ -36,6 +36,7 @@ _engine = NegotiationEngine(config=_config, db_path="negotiations.db")
 
 # ─── Lifespan ────────────────────────────────────────────────────────────────
 
+
 @app.on_event("shutdown")
 def _shutdown() -> None:
     _engine.close()

@@ -13,9 +13,9 @@ import random as _stdlib_random
 import sqlite3
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -32,7 +32,6 @@ from .state import (
     make_initial_state,
     transition_intent,
 )
-
 
 # ═══════════════════════════════════════════════════════════════
 #  SQLITE AUDIT TRAIL
@@ -81,7 +80,7 @@ class AuditLogger:
         session_id: str,
         turn: int,
         state: State,
-        visit_dist: Dict[str, Any],
+        visit_dist: dict[str, Any],
         action: Action,
         discount_pct: int,
     ) -> None:
@@ -105,12 +104,12 @@ class AuditLogger:
                 json.dumps(visit_dist),
                 action.name,
                 discount_pct,
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
             ),
         )
         self._conn.commit()
 
-    def get_session_log(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_session_log(self, session_id: str) -> list[dict[str, Any]]:
         """Return all decision records for a session, ordered by turn."""
         cursor = self._conn.execute(
             """SELECT session_id, turn, state_tuple,
@@ -143,31 +142,23 @@ class ResponseTemplateEngine:
     Placeholders: {discount_pct}, {cart_value}, {cart_bin}, {intent}
     """
 
-    def __init__(self, templates_path: Optional[Path] = None) -> None:
+    def __init__(self, templates_path: Path | None = None) -> None:
         path = templates_path or _DEFAULT_TEMPLATES_PATH
         if path.exists():
             with open(path, encoding="utf-8") as f:
-                self._templates: Dict[str, Any] = yaml.safe_load(f)
+                self._templates: dict[str, Any] = yaml.safe_load(f)
         else:
             self._templates = self._fallback_templates()
 
     @staticmethod
-    def _fallback_templates() -> Dict[str, Any]:
+    def _fallback_templates() -> dict[str, Any]:
         return {
             "CONCEDE": {
-                "messages": [
-                    "We'd like to offer you {discount_pct}% off your order!"
-                ]
+                "messages": ["We'd like to offer you {discount_pct}% off your order!"]
             },
-            "HOLD": {
-                "messages": [
-                    "This is already excellent value at {cart_value}."
-                ]
-            },
+            "HOLD": {"messages": ["This is already excellent value at {cart_value}."]},
             "CROSS_SELL": {
-                "messages": [
-                    "Complete your purchase with a complementary item."
-                ]
+                "messages": ["Complete your purchase with a complementary item."]
             },
         }
 
@@ -179,7 +170,7 @@ class ResponseTemplateEngine:
     ) -> str:
         """Pick a random template and interpolate placeholders."""
         action_templates = self._templates.get(action.name, {})
-        messages: List[str] = action_templates.get("messages", [""])
+        messages: list[str] = action_templates.get("messages", [""])
         template = _stdlib_random.choice(messages)
 
         discount_pct = state.discount_pct
@@ -205,13 +196,11 @@ class SessionContext:
 
     session_id: str
     state: State  # State from which the last MCTS search was run
-    last_action: Optional[Action] = None
+    last_action: Action | None = None
     committed_discount_pct: int = 0  # Discount AFTER our last action
-    mcts_seed: Optional[int] = None
+    mcts_seed: int | None = None
     is_terminal: bool = False
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -238,13 +227,13 @@ class NegotiationEngine:
         self,
         config: NegotiatorConfig = DEFAULT_CONFIG,
         db_path: str = "negotiations.db",
-        templates_path: Optional[Path] = None,
+        templates_path: Path | None = None,
     ) -> None:
         self.config = config
         self.opponent = OpponentModel()
         self.audit = AuditLogger(db_path)
         self.templates = ResponseTemplateEngine(templates_path)
-        self._sessions: Dict[str, SessionContext] = {}
+        self._sessions: dict[str, SessionContext] = {}
 
     # ── Public API ────────────────────────────────────────────
 
@@ -252,12 +241,12 @@ class NegotiationEngine:
         self,
         cart_value: float,
         intent: UserIntent | str,
-        session_id: Optional[str] = None,
-        seed: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        session_id: str | None = None,
+        seed: int | None = None,
+    ) -> dict[str, Any]:
         """Initialize a new negotiation and return the first offer."""
         sid = session_id or str(uuid.uuid4())
-        
+
         # Coerce intent if string passed
         if isinstance(intent, str):
             intent_enum = UserIntent[intent]
@@ -281,16 +270,14 @@ class NegotiationEngine:
         self,
         session_id: str,
         user_response: UserResponse | str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Advance an existing session with the user's response."""
         ctx = self._sessions.get(session_id)
         if ctx is None:
             raise ValueError(f"Unknown session: {session_id}")
 
         if ctx.last_action is None:
-            raise ValueError(
-                f"Session {session_id} has not been started yet."
-            )
+            raise ValueError(f"Session {session_id} has not been started yet.")
 
         # Coerce user response if string passed
         if isinstance(user_response, str):
@@ -357,11 +344,11 @@ class NegotiationEngine:
 
         return self._run_turn(ctx)
 
-    def get_session(self, session_id: str) -> Optional[SessionContext]:
+    def get_session(self, session_id: str) -> SessionContext | None:
         """Return the in-memory session context, if it exists."""
         return self._sessions.get(session_id)
 
-    def get_audit_log(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_audit_log(self, session_id: str) -> list[dict[str, Any]]:
         """Return the SQLite audit trail for a session."""
         return self.audit.get_session_log(session_id)
 
@@ -371,7 +358,7 @@ class NegotiationEngine:
 
     # ── Internal ──────────────────────────────────────────────
 
-    def _run_turn(self, ctx: SessionContext) -> Dict[str, Any]:
+    def _run_turn(self, ctx: SessionContext) -> dict[str, Any]:
         """Execute one MCTS search and return the structured result."""
         # Derive per-turn seed for deterministic but varying searches.
         seed = None
@@ -393,10 +380,7 @@ class NegotiationEngine:
             new_discount += self.config.DISCOUNT_STEP_SIZE
 
         # Build visit distribution for logging.
-        visit_dist = {
-            name: stats[name]
-            for name in ("CONCEDE", "HOLD", "CROSS_SELL")
-        }
+        visit_dist = {name: stats[name] for name in ("CONCEDE", "HOLD", "CROSS_SELL")}
 
         # ── Audit log ────────────────────────────────────────
         self.audit.log(
@@ -427,9 +411,7 @@ class NegotiationEngine:
             "tree_size": stats["tree_size"],
         }
 
-    def _finalize(
-        self, ctx: SessionContext, response: UserResponse
-    ) -> Dict[str, Any]:
+    def _finalize(self, ctx: SessionContext, response: UserResponse) -> dict[str, Any]:
         """Handle terminal ACCEPT response."""
         ctx.is_terminal = True
         return {

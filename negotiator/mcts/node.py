@@ -11,7 +11,6 @@ children — one per distinct sampled response.  This is the standard
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from ..actions import Action
 from ..state import State
@@ -30,27 +29,25 @@ class MCTSNode:
     """
 
     state: State
-    parent: Optional[MCTSNode] = field(default=None, repr=False)
-    incoming_action: Optional[Action] = None
-    incoming_response: Optional[int] = None  # UserResponse int value
+    parent: MCTSNode | None = field(default=None, repr=False)
+    incoming_action: Action | None = None
+    incoming_response: int | None = None  # UserResponse int value
 
     # ── Children ──────────────────────────────────────────────
     # Keyed by Action.  Each action maps to a *list* of child nodes
     # because the opponent's stochastic response creates multiple
     # possible successor states from the same parent action.
-    children: Dict[Action, List[MCTSNode]] = field(
-        default_factory=dict, repr=False
-    )
+    children: dict[Action, list[MCTSNode]] = field(default_factory=dict, repr=False)
 
     # ── Visit Statistics ──────────────────────────────────────
     visit_count: int = 0
     total_reward: float = 0.0
 
     # Per-action aggregates at *this* node.
-    action_visits: Dict[Action, int] = field(
+    action_visits: dict[Action, int] = field(
         default_factory=lambda: {a: 0 for a in Action}
     )
-    action_rewards: Dict[Action, float] = field(
+    action_rewards: dict[Action, float] = field(
         default_factory=lambda: {a: 0.0 for a in Action}
     )
 

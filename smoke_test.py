@@ -1,9 +1,11 @@
 """Smoke test: full MCTS engine integration."""
+
 import time
-from negotiator.mcts.tree import MCTSEngine
-from negotiator.mcts.node import MCTSNode
-from negotiator.state import make_initial_state, UserIntent, CartValueBin
+
 from negotiator.config import NegotiatorConfig
+from negotiator.mcts.node import MCTSNode
+from negotiator.mcts.tree import MCTSEngine
+from negotiator.state import CartValueBin, UserIntent, make_initial_state
 
 
 def test_burnin():
@@ -39,9 +41,15 @@ def test_full_mode():
 
     print("=== FULL MODE (ABANDONING user, PREMIUM cart) ===")
     print(f"  Best action:     {stats['best_action']}")
-    print(f"  CONCEDE:         {stats['CONCEDE']['visits']} visits, Q={stats['CONCEDE']['mean_q']:.4f}")
-    print(f"  HOLD:            {stats['HOLD']['visits']} visits, Q={stats['HOLD']['mean_q']:.4f}")
-    print(f"  CROSS_SELL:      {stats['CROSS_SELL']['visits']} visits, Q={stats['CROSS_SELL']['mean_q']:.4f}")
+    print(
+        f"  CONCEDE:         {stats['CONCEDE']['visits']} visits, Q={stats['CONCEDE']['mean_q']:.4f}"
+    )
+    print(
+        f"  HOLD:            {stats['HOLD']['visits']} visits, Q={stats['HOLD']['mean_q']:.4f}"
+    )
+    print(
+        f"  CROSS_SELL:      {stats['CROSS_SELL']['visits']} visits, Q={stats['CROSS_SELL']['mean_q']:.4f}"
+    )
     print(f"  Tree size:       {stats['tree_size']} nodes")
     print(f"  Latency:         {elapsed_ms:.1f} ms")
     assert stats["total_iterations"] == 1000

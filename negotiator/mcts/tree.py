@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Optional
 
 from ..actions import Action, legal_actions
 from ..config import DEFAULT_CONFIG, NegotiatorConfig
@@ -23,7 +22,6 @@ from ..opponent_model import OpponentModel
 from ..reward import normalize_reward, step_reward, terminal_reward
 from ..state import (
     State,
-    UserResponse,
     apply_transition,
     transition_intent,
 )
@@ -53,8 +51,8 @@ class MCTSEngine:
     def __init__(
         self,
         config: NegotiatorConfig = DEFAULT_CONFIG,
-        opponent: Optional[OpponentModel] = None,
-        seed: Optional[int] = None,
+        opponent: OpponentModel | None = None,
+        seed: int | None = None,
     ) -> None:
         self.config = config
         self.opponent = opponent or OpponentModel()
@@ -107,9 +105,7 @@ class MCTSEngine:
                 "visits": n,
                 "mean_q": round(q / n, 6) if n > 0 else 0.0,
                 "visit_share": (
-                    round(n / root.visit_count, 4)
-                    if root.visit_count > 0
-                    else 0.0
+                    round(n / root.visit_count, 4) if root.visit_count > 0 else 0.0
                 ),
             }
         stats["best_action"] = self._best_action(root).name
@@ -133,9 +129,7 @@ class MCTSEngine:
         """
         while not node.state.is_terminal(self.config):
             legal = legal_actions(node.state, self.config)
-            unexplored = [
-                a for a in legal if a not in node.expanded_actions()
-            ]
+            unexplored = [a for a in legal if a not in node.expanded_actions()]
 
             if unexplored:
                 # Node has untried actions → stop here for expansion.
@@ -161,9 +155,7 @@ class MCTSEngine:
 
         return node
 
-    def _ucb1_select(
-        self, node: MCTSNode, legal: list[Action]
-    ) -> Action:
+    def _ucb1_select(self, node: MCTSNode, legal: list[Action]) -> Action:
         """
         Upper Confidence Bound for Trees (UCT / UCB1).
 
@@ -172,9 +164,7 @@ class MCTSEngine:
         Actions not in *legal* are structurally excluded — they can
         never be selected, preserving the discount ceiling invariant.
         """
-        ln_parent = (
-            math.log(node.visit_count) if node.visit_count > 0 else 0.0
-        )
+        ln_parent = math.log(node.visit_count) if node.visit_count > 0 else 0.0
         best_score = -math.inf
         best_action = legal[0]  # Safe default — list is never empty.
 
@@ -211,9 +201,7 @@ class MCTSEngine:
         Returns the newly created child.
         """
         legal = legal_actions(node.state, self.config)
-        unexplored = [
-            a for a in legal if a not in node.expanded_actions()
-        ]
+        unexplored = [a for a in legal if a not in node.expanded_actions()]
 
         if not unexplored:
             return node  # Fully expanded — nothing to add.
@@ -221,18 +209,14 @@ class MCTSEngine:
         action = self.rng.choice(unexplored)
 
         # ── Sample opponent response ─────────────────────────
-        response = self.opponent.sample_response(
-            node.state, action, self.rng
-        )
+        response = self.opponent.sample_response(node.state, action, self.rng)
 
         # ── Compute successor state ─────────────────────────
         new_discount = node.state.discount_pct
         if action == Action.CONCEDE:
             new_discount += self.config.DISCOUNT_STEP_SIZE
 
-        new_intent = transition_intent(
-            node.state.intent, response, self.rng.random()
-        )
+        new_intent = transition_intent(node.state.intent, response, self.rng.random())
 
         child_state = apply_transition(
             state=node.state,
@@ -280,17 +264,13 @@ class MCTSEngine:
                 # Greedy: pick the action most likely to convert.
                 action = max(
                     legal,
-                    key=lambda a: self.opponent.acceptance_probability(
-                        current, a
-                    ),
+                    key=lambda a: self.opponent.acceptance_probability(current, a),
                 )
             else:
                 action = self.rng.choice(legal)
 
             # ── Sample opponent response ─────────────────────
-            response = self.opponent.sample_response(
-                current, action, self.rng
-            )
+            response = self.opponent.sample_response(current, action, self.rng)
 
             # ── Accumulate discounted step reward ────────────
             r = step_reward(current, action, response, self.config)
@@ -302,9 +282,7 @@ class MCTSEngine:
             if action == Action.CONCEDE:
                 new_discount += self.config.DISCOUNT_STEP_SIZE
 
-            new_intent = transition_intent(
-                current.intent, response, self.rng.random()
-            )
+            new_intent = transition_intent(current.intent, response, self.rng.random())
 
             current = apply_transition(
                 state=current,
@@ -332,15 +310,12 @@ class MCTSEngine:
         total_reward) and the parent's per-action aggregates
         (action_visits, action_rewards) for the incoming action.
         """
-        current: Optional[MCTSNode] = node
+        current: MCTSNode | None = node
         while current is not None:
             current.visit_count += 1
             current.total_reward += reward
 
-            if (
-                current.parent is not None
-                and current.incoming_action is not None
-            ):
+            if current.parent is not None and current.incoming_action is not None:
                 action = current.incoming_action
                 current.parent.action_visits[action] += 1
                 current.parent.action_rewards[action] += reward

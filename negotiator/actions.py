@@ -11,7 +11,6 @@ Safety invariants enforced here:
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import List
 
 from .config import DEFAULT_CONFIG, NegotiatorConfig
 from .state import State
@@ -25,7 +24,7 @@ class Action(IntEnum):
     CROSS_SELL = 2  # Suggest a complementary product
 
 
-ALL_ACTIONS: List[Action] = list(Action)
+ALL_ACTIONS: list[Action] = list(Action)
 NUM_ACTIONS: int = len(ALL_ACTIONS)
 
 
@@ -34,7 +33,7 @@ def legality_mask(
     config: NegotiatorConfig = DEFAULT_CONFIG,
     *,
     has_cross_sell_catalog: bool = True,
-) -> List[bool]:
+) -> list[bool]:
     """
     Return a boolean mask of legal actions for *state*.
 
@@ -77,9 +76,7 @@ def legal_actions(
     config: NegotiatorConfig = DEFAULT_CONFIG,
     *,
     has_cross_sell_catalog: bool = True,
-) -> List[Action]:
+) -> list[Action]:
     """Return the list of legal Action values for *state*."""
-    mask = legality_mask(
-        state, config, has_cross_sell_catalog=has_cross_sell_catalog
-    )
+    mask = legality_mask(state, config, has_cross_sell_catalog=has_cross_sell_catalog)
     return [a for a in ALL_ACTIONS if mask[a]]

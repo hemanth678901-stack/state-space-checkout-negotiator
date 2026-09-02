@@ -13,13 +13,13 @@ import json
 import os
 import sqlite3
 import time
+
 import pandas as pd
 import streamlit as st
 
-from negotiator.actions import Action
 from negotiator.config import NegotiatorConfig
 from negotiator.engine import NegotiationEngine
-from negotiator.state import CartValueBin, UserIntent, UserResponse
+from negotiator.state import UserIntent, UserResponse
 
 # ─── Page Configuration ──────────────────────────────────────────────────────
 
@@ -100,7 +100,9 @@ st.markdown(
 
 if "engine" not in st.session_state:
     config = NegotiatorConfig(BURN_IN_ACTIVE=False, MCTS_ITERATIONS=600)
-    st.session_state.engine = NegotiationEngine(config=config, db_path="negotiations.db")
+    st.session_state.engine = NegotiationEngine(
+        config=config, db_path="negotiations.db"
+    )
 
 if "active_session_id" not in st.session_state:
     st.session_state.active_session_id = None
@@ -113,9 +115,24 @@ if "current_discount_pct" not in st.session_state:
 
 if "cart_items" not in st.session_state:
     st.session_state.cart_items = [
-        {"name": "Studio ANC Pro Headphones", "price": 299.99, "qty": 1, "selected": True},
-        {"name": "Magnetic 65W Fast Charger", "price": 49.99, "qty": 1, "selected": True},
-        {"name": "Braided Kevlar USB-C Cable", "price": 19.99, "qty": 1, "selected": False},
+        {
+            "name": "Studio ANC Pro Headphones",
+            "price": 299.99,
+            "qty": 1,
+            "selected": True,
+        },
+        {
+            "name": "Magnetic 65W Fast Charger",
+            "price": 49.99,
+            "qty": 1,
+            "selected": True,
+        },
+        {
+            "name": "Braided Kevlar USB-C Cable",
+            "price": 19.99,
+            "qty": 1,
+            "selected": False,
+        },
     ]
 
 if "session_status" not in st.session_state:
@@ -133,8 +150,14 @@ if "user_intent" not in st.session_state:
 
 # ─── Top Bar Header ──────────────────────────────────────────────────────────
 
-st.markdown('<div class="main-header">⚡ State-Space Bounded Checkout Negotiator</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">MCTS-driven e-commerce pricing engine with hard safety bounds and verified audit trails.</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="main-header">⚡ State-Space Bounded Checkout Negotiator</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="sub-header">MCTS-driven e-commerce pricing engine with hard safety bounds and verified audit trails.</div>',
+    unsafe_allow_html=True,
+)
 
 # ─── Layout: Left (Cart & Negotiation), Right (MCTS Inspector & Audit) ───────
 
@@ -156,7 +179,14 @@ with col_left:
             selected = c_check.checkbox("", value=item["selected"], key=f"item_sel_{i}")
             item["selected"] = selected
             c_name.markdown(f"**{item['name']}**")
-            qty = c_qty.number_input("Qty", min_value=1, max_value=10, value=item["qty"], key=f"qty_{i}", label_visibility="collapsed")
+            qty = c_qty.number_input(
+                "Qty",
+                min_value=1,
+                max_value=10,
+                value=item["qty"],
+                key=f"qty_{i}",
+                label_visibility="collapsed",
+            )
             item["qty"] = qty
             line_total = item["price"] * qty
             c_price.markdown(f"${line_total:.2f}")
@@ -172,42 +202,55 @@ with col_left:
     with st.container(border=True):
         c1, c2, c3 = st.columns(3)
         c1.metric("Subtotal", f"${raw_subtotal:.2f}")
-        c2.metric("Discount Applied", f"{st.session_state.current_discount_pct}%", f"-${discount_amount:.2f}")
+        c2.metric(
+            "Discount Applied",
+            f"{st.session_state.current_discount_pct}%",
+            f"-${discount_amount:.2f}",
+        )
         c3.metric("Payable Total", f"${final_total:.2f}")
 
     # Session Initialization / Control
     st.subheader("💬 AI Negotiator")
 
-    intent_options = ["CONSIDERING", "BROWSING", "READY_TO_BUY", "ABANDONING", "RETURNING"]
+    intent_options = [
+        "CONSIDERING",
+        "BROWSING",
+        "READY_TO_BUY",
+        "ABANDONING",
+        "RETURNING",
+    ]
     selected_intent = st.selectbox(
         "Simulated Customer Intent Signal:",
         intent_options,
         index=intent_options.index(st.session_state.user_intent),
-        help="In production, this is inferred in real-time from dwell time, scroll speed, and cursor intent."
+        help="In production, this is inferred in real-time from dwell time, scroll speed, and cursor intent.",
     )
     st.session_state.user_intent = selected_intent
 
     # Start Session Button if Idle
-    if st.session_state.session_status == "idle":
-        if st.button("🚀 Start Negotiation", use_container_width=True, type="primary"):
-            t0 = time.perf_counter()
-            res = st.session_state.engine.start_session(
-                cart_value=raw_subtotal,
-                intent=UserIntent[selected_intent],
-            )
-            st.session_state.last_latency_ms = (time.perf_counter() - t0) * 1000
-            st.session_state.active_session_id = res["session_id"]
-            st.session_state.session_status = "active"
-            st.session_state.current_discount_pct = res["discount_pct"]
-            st.session_state.last_mcts_stats = res
-            st.session_state.chat_history.append({
+    if st.session_state.session_status == "idle" and st.button(
+        "🚀 Start Negotiation", use_container_width=True, type="primary"
+    ):
+        t0 = time.perf_counter()
+        res = st.session_state.engine.start_session(
+            cart_value=raw_subtotal,
+            intent=UserIntent[selected_intent],
+        )
+        st.session_state.last_latency_ms = (time.perf_counter() - t0) * 1000
+        st.session_state.active_session_id = res["session_id"]
+        st.session_state.session_status = "active"
+        st.session_state.current_discount_pct = res["discount_pct"]
+        st.session_state.last_mcts_stats = res
+        st.session_state.chat_history.append(
+            {
                 "role": "assistant",
                 "action": res["action"],
                 "text": res["message"],
                 "turn": res["turn"],
                 "discount": res["discount_pct"],
-            })
-            st.rerun()
+            }
+        )
+        st.rerun()
 
     # Active Chat Container
     with st.container(border=True):
@@ -220,8 +263,19 @@ with col_left:
                         st.write(msg["text"])
                 else:
                     with st.chat_message("assistant", avatar="⚡"):
-                        badge_class = "badge-concede" if msg.get("action") == "CONCEDE" else ("badge-hold" if msg.get("action") == "HOLD" else "badge-cross")
-                        st.markdown(f"<span class='{badge_class}'>{msg.get('action', 'SYSTEM')}</span> — {msg['text']}", unsafe_allow_html=True)
+                        badge_class = (
+                            "badge-concede"
+                            if msg.get("action") == "CONCEDE"
+                            else (
+                                "badge-hold"
+                                if msg.get("action") == "HOLD"
+                                else "badge-cross"
+                            )
+                        )
+                        st.markdown(
+                            f"<span class='{badge_class}'>{msg.get('action', 'SYSTEM')}</span> — {msg['text']}",
+                            unsafe_allow_html=True,
+                        )
 
     # Customer Action Controls
     if st.session_state.session_status == "active":
@@ -233,12 +287,18 @@ with col_left:
                 st.session_state.active_session_id, UserResponse.ACCEPT
             )
             st.session_state.session_status = "accepted"
-            st.session_state.chat_history.append({"role": "user", "text": "I accept this offer! Complete purchase."})
-            st.session_state.chat_history.append({"role": "assistant", "action": "ACCEPT", "text": res["message"]})
+            st.session_state.chat_history.append(
+                {"role": "user", "text": "I accept this offer! Complete purchase."}
+            )
+            st.session_state.chat_history.append(
+                {"role": "assistant", "action": "ACCEPT", "text": res["message"]}
+            )
             st.rerun()
 
         if b2.button("📉 Ask for More Discount", use_container_width=True):
-            st.session_state.chat_history.append({"role": "user", "text": "Can you offer a better discount?"})
+            st.session_state.chat_history.append(
+                {"role": "user", "text": "Can you offer a better discount?"}
+            )
             t0 = time.perf_counter()
             res = st.session_state.engine.continue_session(
                 st.session_state.active_session_id, UserResponse.COUNTER
@@ -249,17 +309,23 @@ with col_left:
                 st.session_state.session_status = "terminated"
             else:
                 st.session_state.current_discount_pct = res["discount_pct"]
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "action": res.get("action", "TERMINAL"),
-                "text": res["message"],
-                "turn": res.get("turn", 0),
-                "discount": res.get("discount_pct", st.session_state.current_discount_pct),
-            })
+            st.session_state.chat_history.append(
+                {
+                    "role": "assistant",
+                    "action": res.get("action", "TERMINAL"),
+                    "text": res["message"],
+                    "turn": res.get("turn", 0),
+                    "discount": res.get(
+                        "discount_pct", st.session_state.current_discount_pct
+                    ),
+                }
+            )
             st.rerun()
 
         if b3.button("❌ Reject Offer", use_container_width=True):
-            st.session_state.chat_history.append({"role": "user", "text": "No, that's not good enough."})
+            st.session_state.chat_history.append(
+                {"role": "user", "text": "No, that's not good enough."}
+            )
             t0 = time.perf_counter()
             res = st.session_state.engine.continue_session(
                 st.session_state.active_session_id, UserResponse.REJECT
@@ -270,17 +336,23 @@ with col_left:
                 st.session_state.session_status = "terminated"
             else:
                 st.session_state.current_discount_pct = res["discount_pct"]
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "action": res.get("action", "TERMINAL"),
-                "text": res["message"],
-                "turn": res.get("turn", 0),
-                "discount": res.get("discount_pct", st.session_state.current_discount_pct),
-            })
+            st.session_state.chat_history.append(
+                {
+                    "role": "assistant",
+                    "action": res.get("action", "TERMINAL"),
+                    "text": res["message"],
+                    "turn": res.get("turn", 0),
+                    "discount": res.get(
+                        "discount_pct", st.session_state.current_discount_pct
+                    ),
+                }
+            )
             st.rerun()
 
     elif st.session_state.session_status in ("accepted", "terminated"):
-        st.success(f"Session finished with status: **{st.session_state.session_status.upper()}** (Final Discount: {st.session_state.current_discount_pct}%)")
+        st.success(
+            f"Session finished with status: **{st.session_state.session_status.upper()}** (Final Discount: {st.session_state.current_discount_pct}%)"
+        )
         if st.button("🔄 Start New Customer Session", use_container_width=True):
             st.session_state.session_status = "idle"
             st.session_state.active_session_id = None
@@ -295,13 +367,18 @@ with col_left:
 # ═══════════════════════════════════════════════════════════════════════════
 
 with col_right:
-    tab_mcts, tab_audit = st.tabs(["🧠 Real-Time MCTS Inspector", "📜 Live SQLite Audit Ledger"])
+    tab_mcts, tab_audit = st.tabs(
+        ["🧠 Real-Time MCTS Inspector", "📜 Live SQLite Audit Ledger"]
+    )
 
     # ── TAB 1: MCTS INSPECTOR ──────────────────────────────────────────────
     with tab_mcts:
         st.subheader("Monte Carlo Tree Search Decision State")
 
-        if st.session_state.last_mcts_stats and "stats" in st.session_state.last_mcts_stats:
+        if (
+            st.session_state.last_mcts_stats
+            and "stats" in st.session_state.last_mcts_stats
+        ):
             stats = st.session_state.last_mcts_stats
             dist = stats.get("stats", {})
 
@@ -317,7 +394,9 @@ with col_right:
             st_col1, st_col2, st_col3, st_col4 = st.columns(4)
             st_col1.info(f"**Intent ($I$):**\n{st.session_state.user_intent}")
             st_col2.info(f"**Cart Value ($V$):**\n${raw_subtotal:.2f}")
-            st_col3.info(f"**Discount Margin ($\\Delta$):**\n{st.session_state.current_discount_pct}%")
+            st_col3.info(
+                f"**Discount Margin ($\\Delta$):**\n{st.session_state.current_discount_pct}%"
+            )
             st_col4.info(f"**Turn ($t$):**\nTurn {stats.get('turn', 0)} / 5")
 
             # UCT Visit Distribution & Q-Values Table / Visual
@@ -325,27 +404,40 @@ with col_right:
 
             dist_data = []
             for act_name in ["CONCEDE", "HOLD", "CROSS_SELL"]:
-                a_info = dist.get(act_name, {"visits": 0, "mean_q": 0.0, "visit_share": 0.0})
-                dist_data.append({
-                    "Action": act_name,
-                    "UCB1 Visits": a_info.get("visits", 0),
-                    "Visit Share (%)": f"{a_info.get('visit_share', 0.0)*100:.1f}%",
-                    "Expected Q-Value": round(a_info.get("mean_q", 0.0), 4),
-                    "Status": "✅ WINNER (argmax N)" if act_name == stats.get("action") else "Evaluated",
-                })
+                a_info = dist.get(
+                    act_name, {"visits": 0, "mean_q": 0.0, "visit_share": 0.0}
+                )
+                dist_data.append(
+                    {
+                        "Action": act_name,
+                        "UCB1 Visits": a_info.get("visits", 0),
+                        "Visit Share (%)": f"{a_info.get('visit_share', 0.0) * 100:.1f}%",
+                        "Expected Q-Value": round(a_info.get("mean_q", 0.0), 4),
+                        "Status": "✅ WINNER (argmax N)"
+                        if act_name == stats.get("action")
+                        else "Evaluated",
+                    }
+                )
 
             df_dist = pd.DataFrame(dist_data)
             st.dataframe(df_dist, use_container_width=True, hide_index=True)
 
             # Visit share bar chart
-            chart_df = pd.DataFrame({
-                "Action": ["CONCEDE", "HOLD", "CROSS_SELL"],
-                "Visits": [dist.get(a, {}).get("visits", 0) for a in ["CONCEDE", "HOLD", "CROSS_SELL"]]
-            }).set_index("Action")
+            chart_df = pd.DataFrame(
+                {
+                    "Action": ["CONCEDE", "HOLD", "CROSS_SELL"],
+                    "Visits": [
+                        dist.get(a, {}).get("visits", 0)
+                        for a in ["CONCEDE", "HOLD", "CROSS_SELL"]
+                    ],
+                }
+            ).set_index("Action")
             st.bar_chart(chart_df, color="#4F46E5")
 
         else:
-            st.info("Start a negotiation session on the left to inspect the live MCTS tree search, state tuple, and visit distributions.")
+            st.info(
+                "Start a negotiation session on the left to inspect the live MCTS tree search, state tuple, and visit distributions."
+            )
 
     # ── TAB 2: LIVE AUDIT TRAIL ────────────────────────────────────────────
     with tab_audit:
@@ -369,31 +461,51 @@ with col_right:
                 conn.close()
 
                 if not df_audit.empty:
-                    st.caption(f"Showing last {len(df_audit)} immutable decision records:")
+                    st.caption(
+                        f"Showing last {len(df_audit)} immutable decision records:"
+                    )
                     st.dataframe(
-                        df_audit[["id", "session_id", "turn", "selected_action", "resulting_discount_pct", "timestamp"]],
+                        df_audit[
+                            [
+                                "id",
+                                "session_id",
+                                "turn",
+                                "selected_action",
+                                "resulting_discount_pct",
+                                "timestamp",
+                            ]
+                        ],
                         use_container_width=True,
                         hide_index=True,
                     )
 
                     # Expand selected record
                     st.markdown("#### Inspect Trace Record")
-                    selected_id = st.selectbox("Select Record ID for Full State & Distribution Dump:", df_audit["id"].tolist())
+                    selected_id = st.selectbox(
+                        "Select Record ID for Full State & Distribution Dump:",
+                        df_audit["id"].tolist(),
+                    )
                     record = df_audit[df_audit["id"] == selected_id].iloc[0]
 
-                    st.json({
-                        "id": int(record["id"]),
-                        "session_id": str(record["session_id"]),
-                        "turn": int(record["turn"]),
-                        "selected_action": str(record["selected_action"]),
-                        "resulting_discount_pct": int(record["resulting_discount_pct"]),
-                        "state_tuple": json.loads(record["state_tuple"]),
-                        "mcts_visit_distribution": json.loads(record["mcts_visit_distribution"]),
-                        "timestamp": str(record["timestamp"]),
-                    })
+                    st.json(
+                        {
+                            "id": int(record["id"]),
+                            "session_id": str(record["session_id"]),
+                            "turn": int(record["turn"]),
+                            "selected_action": str(record["selected_action"]),
+                            "resulting_discount_pct": int(
+                                record["resulting_discount_pct"]
+                            ),
+                            "state_tuple": json.loads(record["state_tuple"]),
+                            "mcts_visit_distribution": json.loads(
+                                record["mcts_visit_distribution"]
+                            ),
+                            "timestamp": str(record["timestamp"]),
+                        }
+                    )
                 else:
                     st.write("No audit records in database yet.")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 st.error(f"Error querying audit database: {e}")
         else:
             st.info("negotiations.db has not been created yet.")

@@ -9,7 +9,6 @@ trained on real session logs once burn-in threshold is reached.
 from __future__ import annotations
 
 import random
-from typing import Dict, Tuple
 
 from .actions import Action
 from .state import State, UserIntent, UserResponse
@@ -19,9 +18,7 @@ from .state import State, UserIntent, UserResponse
 # Key:   (UserIntent, Action)
 # Value: (P(ACCEPT), P(REJECT), P(COUNTER))  — must sum to 1.0.
 #
-_RESPONSE_TABLE: Dict[
-    Tuple[UserIntent, Action], Tuple[float, float, float]
-] = {
+_RESPONSE_TABLE: dict[tuple[UserIntent, Action], tuple[float, float, float]] = {
     # ── BROWSING ──────────────────────────────────────────────
     (UserIntent.BROWSING, Action.CONCEDE): (0.20, 0.50, 0.30),
     (UserIntent.BROWSING, Action.HOLD): (0.05, 0.65, 0.30),
@@ -45,7 +42,7 @@ _RESPONSE_TABLE: Dict[
 }
 
 # Defensive fallback for any missing key.
-_FALLBACK_PROBS: Tuple[float, float, float] = (0.15, 0.50, 0.35)
+_FALLBACK_PROBS: tuple[float, float, float] = (0.15, 0.50, 0.35)
 
 
 class OpponentModel:
@@ -58,19 +55,17 @@ class OpponentModel:
     """
 
     def __init__(self) -> None:
-        self._table: Dict[
-            Tuple[UserIntent, Action], Tuple[float, float, float]
-        ] = dict(_RESPONSE_TABLE)
+        self._table: dict[tuple[UserIntent, Action], tuple[float, float, float]] = dict(
+            _RESPONSE_TABLE
+        )
 
     # ── Public API ────────────────────────────────────────────
 
     def response_probs(
         self, state: State, action: Action
-    ) -> Tuple[float, float, float]:
+    ) -> tuple[float, float, float]:
         """Return (P(ACCEPT), P(REJECT), P(COUNTER))."""
-        return self._table.get(
-            (state.intent, action), _FALLBACK_PROBS
-        )
+        return self._table.get((state.intent, action), _FALLBACK_PROBS)
 
     def sample_response(
         self,
@@ -87,8 +82,6 @@ class OpponentModel:
             return UserResponse.REJECT
         return UserResponse.COUNTER
 
-    def acceptance_probability(
-        self, state: State, action: Action
-    ) -> float:
+    def acceptance_probability(self, state: State, action: Action) -> float:
         """P(ACCEPT) — used by the ε-greedy rollout heuristic."""
         return self.response_probs(state, action)[0]

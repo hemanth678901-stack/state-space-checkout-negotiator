@@ -13,7 +13,6 @@ Tests:
 
 import json
 import os
-import sqlite3
 import time
 
 # ─── 1. Bug Fix Verification ────────────────────────────────────────────────
@@ -28,9 +27,9 @@ def test_bugfix_concede_selected_when_max_visits():
 
     After the fix, CONCEDE must be selected.
     """
-    from negotiator.mcts.tree import MCTSEngine
-    from negotiator.state import make_initial_state, UserIntent, CartValueBin
     from negotiator.config import NegotiatorConfig
+    from negotiator.mcts.tree import MCTSEngine
+    from negotiator.state import CartValueBin, UserIntent, make_initial_state
 
     config = NegotiatorConfig(BURN_IN_ACTIVE=False, MCTS_ITERATIONS=1000)
     engine = MCTSEngine(config=config, seed=42)
@@ -41,19 +40,28 @@ def test_bugfix_concede_selected_when_max_visits():
     elapsed_ms = (time.perf_counter_ns() - start) / 1_000_000
 
     print("\n=== TEST 1: BUG FIX — CONCEDE MUST WIN ARGMAX N(s,a) ===")
-    print(f"  CONCEDE:    {stats['CONCEDE']['visits']} visits, Q={stats['CONCEDE']['mean_q']:.4f}")
-    print(f"  HOLD:       {stats['HOLD']['visits']} visits, Q={stats['HOLD']['mean_q']:.4f}")
-    print(f"  CROSS_SELL: {stats['CROSS_SELL']['visits']} visits, Q={stats['CROSS_SELL']['mean_q']:.4f}")
+    print(
+        f"  CONCEDE:    {stats['CONCEDE']['visits']} visits, Q={stats['CONCEDE']['mean_q']:.4f}"
+    )
+    print(
+        f"  HOLD:       {stats['HOLD']['visits']} visits, Q={stats['HOLD']['mean_q']:.4f}"
+    )
+    print(
+        f"  CROSS_SELL: {stats['CROSS_SELL']['visits']} visits, Q={stats['CROSS_SELL']['mean_q']:.4f}"
+    )
     print(f"  Selected:   {stats['best_action']}")
     print(f"  Latency:    {elapsed_ms:.1f} ms")
 
     # CONCEDE must have the most visits AND be selected.
-    assert stats["CONCEDE"]["visits"] > stats["HOLD"]["visits"], \
+    assert stats["CONCEDE"]["visits"] > stats["HOLD"]["visits"], (
         f"CONCEDE visits ({stats['CONCEDE']['visits']}) should exceed HOLD ({stats['HOLD']['visits']})"
-    assert stats["CONCEDE"]["visits"] > stats["CROSS_SELL"]["visits"], \
+    )
+    assert stats["CONCEDE"]["visits"] > stats["CROSS_SELL"]["visits"], (
         f"CONCEDE visits ({stats['CONCEDE']['visits']}) should exceed CROSS_SELL ({stats['CROSS_SELL']['visits']})"
-    assert stats["best_action"] == "CONCEDE", \
+    )
+    assert stats["best_action"] == "CONCEDE", (
         f"Expected CONCEDE but got {stats['best_action']} — _best_action bug not fixed!"
+    )
     print("  PASSED ✓\n")
 
 
@@ -62,9 +70,9 @@ def test_bugfix_concede_selected_when_max_visits():
 
 def test_burnin_masks_concede():
     """During burn-in, CONCEDE must have exactly 0 visits."""
-    from negotiator.mcts.tree import MCTSEngine
-    from negotiator.state import make_initial_state, UserIntent, CartValueBin
     from negotiator.config import NegotiatorConfig
+    from negotiator.mcts.tree import MCTSEngine
+    from negotiator.state import CartValueBin, UserIntent, make_initial_state
 
     config = NegotiatorConfig(BURN_IN_ACTIVE=True, MCTS_ITERATIONS=1000)
     engine = MCTSEngine(config=config, seed=42)
@@ -79,8 +87,9 @@ def test_burnin_masks_concede():
     print(f"  Selected:       {stats['best_action']}")
 
     assert stats["CONCEDE"]["visits"] == 0, "CONCEDE must have 0 visits during burn-in"
-    assert stats["best_action"] in ("HOLD", "CROSS_SELL"), \
+    assert stats["best_action"] in ("HOLD", "CROSS_SELL"), (
         f"During burn-in, only HOLD or CROSS_SELL allowed, got {stats['best_action']}"
+    )
     print("  PASSED ✓\n")
 
 
@@ -89,10 +98,10 @@ def test_burnin_masks_concede():
 
 def test_discount_ceiling_invariant():
     """No node in the MCTS tree may have discount_pct > DISCOUNT_MAX."""
-    from negotiator.mcts.tree import MCTSEngine
-    from negotiator.mcts.node import MCTSNode
-    from negotiator.state import make_initial_state, UserIntent, CartValueBin
     from negotiator.config import NegotiatorConfig
+    from negotiator.mcts.node import MCTSNode
+    from negotiator.mcts.tree import MCTSEngine
+    from negotiator.state import CartValueBin, UserIntent, make_initial_state
 
     config = NegotiatorConfig(BURN_IN_ACTIVE=False, MCTS_ITERATIONS=1000)
     engine = MCTSEngine(config=config, seed=99)
@@ -129,9 +138,9 @@ def test_discount_ceiling_invariant():
 
 def test_deterministic_replay():
     """Same seed → same action, same visit counts."""
-    from negotiator.mcts.tree import MCTSEngine
-    from negotiator.state import make_initial_state, UserIntent, CartValueBin
     from negotiator.config import NegotiatorConfig
+    from negotiator.mcts.tree import MCTSEngine
+    from negotiator.state import CartValueBin, UserIntent, make_initial_state
 
     config = NegotiatorConfig(BURN_IN_ACTIVE=False, MCTS_ITERATIONS=500)
     state = make_initial_state(UserIntent.CONSIDERING, CartValueBin.MID)
@@ -140,11 +149,19 @@ def test_deterministic_replay():
     stats2 = MCTSEngine(config=config, seed=123).search_with_stats(state)
 
     print("=== TEST 4: DETERMINISTIC REPLAY ===")
-    print(f"  Run 1: {stats1['best_action']} (CONCEDE={stats1['CONCEDE']['visits']}, HOLD={stats1['HOLD']['visits']}, CS={stats1['CROSS_SELL']['visits']})")
-    print(f"  Run 2: {stats2['best_action']} (CONCEDE={stats2['CONCEDE']['visits']}, HOLD={stats2['HOLD']['visits']}, CS={stats2['CROSS_SELL']['visits']})")
+    print(
+        f"  Run 1: {stats1['best_action']} (CONCEDE={stats1['CONCEDE']['visits']}, HOLD={stats1['HOLD']['visits']}, CS={stats1['CROSS_SELL']['visits']})"
+    )
+    print(
+        f"  Run 2: {stats2['best_action']} (CONCEDE={stats2['CONCEDE']['visits']}, HOLD={stats2['HOLD']['visits']}, CS={stats2['CROSS_SELL']['visits']})"
+    )
 
-    assert stats1["best_action"] == stats2["best_action"], "Non-deterministic action selection!"
-    assert stats1["CONCEDE"]["visits"] == stats2["CONCEDE"]["visits"], "Non-deterministic visit counts!"
+    assert stats1["best_action"] == stats2["best_action"], (
+        "Non-deterministic action selection!"
+    )
+    assert stats1["CONCEDE"]["visits"] == stats2["CONCEDE"]["visits"], (
+        "Non-deterministic visit counts!"
+    )
     print("  PASSED ✓\n")
 
 
@@ -153,10 +170,15 @@ def test_deterministic_replay():
 
 def test_reward_boundaries():
     """Verify reward normalization maps to [0, 1] for extreme cases."""
-    from negotiator.reward import step_reward, terminal_reward, normalize_reward
-    from negotiator.state import make_initial_state, UserIntent, CartValueBin, UserResponse
     from negotiator.actions import Action
     from negotiator.config import NegotiatorConfig
+    from negotiator.reward import normalize_reward, step_reward
+    from negotiator.state import (
+        CartValueBin,
+        UserIntent,
+        UserResponse,
+        make_initial_state,
+    )
 
     config = NegotiatorConfig()
     state = make_initial_state(UserIntent.READY_TO_BUY, CartValueBin.PREMIUM)
@@ -165,6 +187,7 @@ def test_reward_boundaries():
     r_best = step_reward(state, Action.HOLD, UserResponse.ACCEPT, config)
     # Worst case: concede cost at 25%
     from negotiator.state import State
+
     worst_state = State(
         intent=UserIntent.ABANDONING,
         cart_value=CartValueBin.PREMIUM,
@@ -191,9 +214,9 @@ def test_reward_boundaries():
 
 def test_engine_session_lifecycle():
     """Full session: start → continue (REJECT) → continue (ACCEPT). Verify SQLite trail."""
+    from negotiator.config import NegotiatorConfig
     from negotiator.engine import NegotiationEngine
     from negotiator.state import UserIntent, UserResponse
-    from negotiator.config import NegotiatorConfig
 
     db_path = "test_negotiations.db"
     # Clean up from any previous run.
@@ -214,20 +237,27 @@ def test_engine_session_lifecycle():
 
         print("=== TEST 6: ENGINE + SQLITE AUDIT ===")
         print(f"  Session: {sid}")
-        print(f"  Turn 0:  action={result0['action']}, discount={result0['discount_pct']}%, msg='{result0['message'][:60]}...'")
+        print(
+            f"  Turn 0:  action={result0['action']}, discount={result0['discount_pct']}%, msg='{result0['message'][:60]}...'"
+        )
 
         assert result0["status"] == "active"
-        assert result0["action"] in ("HOLD", "CROSS_SELL"), \
+        assert result0["action"] in ("HOLD", "CROSS_SELL"), (
             f"During burn-in, CONCEDE should not appear, got {result0['action']}"
+        )
 
         # Turn 1: user rejects
         result1 = engine.continue_session(sid, UserResponse.REJECT)
-        print(f"  Turn 1:  action={result1['action']}, discount={result1['discount_pct']}%")
+        print(
+            f"  Turn 1:  action={result1['action']}, discount={result1['discount_pct']}%"
+        )
         assert result1["status"] == "active"
 
         # Turn 2: user accepts
         result2 = engine.continue_session(sid, UserResponse.ACCEPT)
-        print(f"  Turn 2:  outcome={result2.get('outcome', 'N/A')}, final_discount={result2.get('final_discount_pct', 'N/A')}%")
+        print(
+            f"  Turn 2:  outcome={result2.get('outcome', 'N/A')}, final_discount={result2.get('final_discount_pct', 'N/A')}%"
+        )
         assert result2["status"] == "terminal"
         assert result2["outcome"] == "ACCEPT"
 
@@ -235,7 +265,9 @@ def test_engine_session_lifecycle():
         audit = engine.get_audit_log(sid)
         print(f"  Audit records: {len(audit)}")
 
-        assert len(audit) == 2, f"Expected 2 audit records (turns 0,1), got {len(audit)}"
+        assert len(audit) == 2, (
+            f"Expected 2 audit records (turns 0,1), got {len(audit)}"
+        )
 
         # Verify audit schema
         for record in audit:
@@ -273,9 +305,10 @@ def test_engine_session_lifecycle():
 def test_api_schemas():
     """Verify Pydantic models serialize/deserialize correctly."""
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    from api.schemas import NegotiateRequest, NegotiateResponse, HealthResponse
+    from api.schemas import HealthResponse, NegotiateRequest, NegotiateResponse
 
     # New session request
     req_new = NegotiateRequest(cart_value=199.99, intent="CONSIDERING")
@@ -304,10 +337,10 @@ def test_api_schemas():
     assert health.action_space_size == 3
 
     print("=== TEST 7: API SCHEMA VALIDATION ===")
-    print(f"  NegotiateRequest (new):      OK")
-    print(f"  NegotiateRequest (continue): OK")
-    print(f"  NegotiateResponse:           OK")
-    print(f"  HealthResponse:              OK")
+    print("  NegotiateRequest (new):      OK")
+    print("  NegotiateRequest (continue): OK")
+    print("  NegotiateResponse:           OK")
+    print("  HealthResponse:              OK")
     print("  PASSED ✓\n")
 
 
@@ -316,11 +349,12 @@ def test_api_schemas():
 
 def test_response_templates():
     """Verify templates load from YAML and render with placeholders."""
-    from negotiator.engine import ResponseTemplateEngine
-    from negotiator.state import make_initial_state, UserIntent, CartValueBin
+    from pathlib import Path
+
     from negotiator.actions import Action
     from negotiator.config import NegotiatorConfig
-    from pathlib import Path
+    from negotiator.engine import ResponseTemplateEngine
+    from negotiator.state import CartValueBin, UserIntent, make_initial_state
 
     config = NegotiatorConfig()
     state = make_initial_state(UserIntent.CONSIDERING, CartValueBin.HIGH)
@@ -331,7 +365,7 @@ def test_response_templates():
     print("=== TEST 8: RESPONSE TEMPLATES ===")
     for action in Action:
         msg = engine.render(action, state, config)
-        print(f"  {action.name}: \"{msg}\"")
+        print(f'  {action.name}: "{msg}"')
         assert len(msg) > 10, f"Template for {action.name} too short: '{msg}'"
         assert "{" not in msg, f"Unresolved placeholder in {action.name}: '{msg}'"
 

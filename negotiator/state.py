@@ -11,10 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional, Tuple
 
 from .config import DEFAULT_CONFIG, NegotiatorConfig
-
 
 # ─── Enumerations ────────────────────────────────────────────────────────────
 
@@ -53,7 +51,7 @@ NO_OP_ACTION: int = -1
 NO_RESPONSE: int = -1
 
 # A single history entry is (action_id, response_id).
-HistoryEntry = Tuple[int, int]
+HistoryEntry = tuple[int, int]
 
 
 # ─── State Dataclass ─────────────────────────────────────────────────────────
@@ -72,7 +70,7 @@ class State:
     cart_value: CartValueBin
     discount_pct: int  # 0, 5, 10, 15, 20, 25
     turn: int  # 0 .. T_MAX
-    history: Tuple[HistoryEntry, ...]  # len == config.HISTORY_LENGTH
+    history: tuple[HistoryEntry, ...]  # len == config.HISTORY_LENGTH
 
     # ── Queries ───────────────────────────────────────────────
 
@@ -82,12 +80,10 @@ class State:
         if self.turn >= config.T_MAX:
             return True
         # Last user response was ACCEPT → conversion happened.
-        if self.history and self.history[-1][1] == UserResponse.ACCEPT:
-            return True
-        return False
+        return bool(self.history and self.history[-1][1] == UserResponse.ACCEPT)
 
     @property
-    def last_response(self) -> Optional[UserResponse]:
+    def last_response(self) -> UserResponse | None:
         """Return the most recent UserResponse, or None if history is empty."""
         if self.history and self.history[-1][1] != NO_RESPONSE:
             return UserResponse(self.history[-1][1])
@@ -107,7 +103,7 @@ def make_initial_state(
     config: NegotiatorConfig = DEFAULT_CONFIG,
 ) -> State:
     """Construct the root state at the start of a checkout session."""
-    empty_history: Tuple[HistoryEntry, ...] = tuple(
+    empty_history: tuple[HistoryEntry, ...] = tuple(
         (NO_OP_ACTION, NO_RESPONSE) for _ in range(config.HISTORY_LENGTH)
     )
     return State(
@@ -192,9 +188,7 @@ def transition_intent(
     if response == UserResponse.ACCEPT:
         return intent  # Terminal — intent is irrelevant.
 
-    transitions = INTENT_TRANSITIONS.get(intent, {}).get(
-        response, [(intent, 1.0)]
-    )
+    transitions = INTENT_TRANSITIONS.get(intent, {}).get(response, [(intent, 1.0)])
     cumulative = 0.0
     for next_intent, prob in transitions:
         cumulative += prob

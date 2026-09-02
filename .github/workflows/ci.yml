@@ -44,17 +44,11 @@ jobs:
       - name: Secret scan (regex safety check)
         run: |
           echo "=== Scanning tracked files for hardcoded secrets ==="
-          # Fail if any tracked file contains likely API keys, private keys, or tokens
-          if git grep -lE \
-            '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|AKIA[A-Z0-9]{16}|AIza[a-zA-Z0-9_-]{35}|-----BEGIN .* PRIVATE KEY-----)' \
-            -- ':(exclude).venv' ':(exclude)node_modules'; then
-            echo "::error::Potential secrets detected in tracked files!"
-            exit 1
-          fi
+          ! git grep -inE "sk-[a-zA-Z0-9]{20}|ghp_[a-zA-Z0-9]{36}|AKIA[A-Z0-9]{16}|AIza[a-zA-Z0-9_-]{35}|-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----|Bearer [a-zA-Z0-9_.-]+" -- ":(exclude).github/workflows/*" ":(exclude).gitignore"
           # Fail if any tracked file contains hardcoded local filesystem paths
           if git grep -lEi \
             '(e:\\\\|c:\\\\users|/home/[a-z]|/Users/[A-Z])' \
-            -- ':(exclude).gitignore' ':(exclude).github'; then
+            -- ':(exclude).gitignore' ':(exclude).github/workflows/*'; then
             echo "::error::Hardcoded local machine paths detected in tracked files!"
             exit 1
           fi

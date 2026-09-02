@@ -19,10 +19,13 @@ env/
 *.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
 
 # OS
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # Distribution
 dist/
@@ -33,3 +36,15 @@ build/
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Temporary files
+*.tmp
+*.bak
+*.log

@@ -1,0 +1,31 @@
+# Default Configuration for State-Space Bounded Checkout Negotiator
+
+cart_bin_edges:
+  - ["LOW", 0.0, 50.0]
+  - ["MID", 50.0, 150.0]
+  - ["HIGH", 150.0, 500.0]
+  - ["PREMIUM", 500.0, .inf]
+
+cart_bin_midpoints: [25.0, 100.0, 325.0, 750.0]
+
+discount_step_size: 5
+discount_max: 25
+t_max: 5
+history_length: 3
+
+mcts_iterations: 1000
+cp: 1.4142135623730951
+rollout_epsilon: 0.3
+
+alpha: 1.0
+beta: 0.8
+gamma_cs: 0.3
+gamma_discount: 0.95
+lambda_abandon: 0.5
+cross_sell_margin: 0.30
+
+burn_in_threshold: 10000
+burn_in_active: false
+
+r_min: -500.0
+r_max: 1500.0

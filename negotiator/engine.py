@@ -200,7 +200,9 @@ class SessionContext:
     committed_discount_pct: int = 0  # Discount AFTER our last action
     mcts_seed: int | None = None
     is_terminal: bool = False
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
 
 # ═══════════════════════════════════════════════════════════════

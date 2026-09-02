@@ -1,0 +1,29 @@
+# Checkout Negotiator — Response Templates
+#
+# Maps each discrete action to natural language responses.
+# Placeholders: {discount_pct}, {cart_value}, {cart_bin}, {intent}
+# Selected randomly per turn — no LLM in the critical path.
+
+CONCEDE:
+  messages:
+    - "Great news! We're prepared to offer you an exclusive {discount_pct}% discount on your order."
+    - "We value your business — here's {discount_pct}% off your cart of {cart_value}."
+    - "Special deal, just for you: {discount_pct}% off your entire order today."
+    - "Because you matter to us — enjoy {discount_pct}% off. This won't last long."
+    - "We'd love to make this work. How about {discount_pct}% off your {cart_value} order?"
+
+HOLD:
+  messages:
+    - "This is already an incredible value at {cart_value}. The quality truly speaks for itself."
+    - "We stand behind our pricing — our customers consistently rate this as exceptional value."
+    - "This price reflects the premium quality you're getting. Let us show you why it's worth it."
+    - "We're confident you'll love this purchase at the current price. It's built to last."
+    - "At {cart_value}, you're getting best-in-class quality. We wouldn't change a thing."
+
+CROSS_SELL:
+  messages:
+    - "Complete your experience! Customers who bought this also added a complementary item for maximum value."
+    - "Want even more value? Consider pairing your purchase with a carefully curated complement."
+    - "Smart shoppers bundle! Add a complementary item and unlock the full experience."
+    - "Enhance your {cart_value} order with a perfectly paired addition. Most customers do."
+    - "Here's a thought — a complementary item would round out your purchase perfectly."

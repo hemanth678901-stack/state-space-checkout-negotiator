@@ -13,7 +13,7 @@ import random as _stdlib_random
 import sqlite3
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -104,7 +104,7 @@ class AuditLogger:
                 json.dumps(visit_dist),
                 action.name,
                 discount_pct,
-                datetime.now(UTC).isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
         self._conn.commit()
@@ -200,7 +200,7 @@ class SessionContext:
     committed_discount_pct: int = 0  # Discount AFTER our last action
     mcts_seed: int | None = None
     is_terminal: bool = False
-    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 # ═══════════════════════════════════════════════════════════════

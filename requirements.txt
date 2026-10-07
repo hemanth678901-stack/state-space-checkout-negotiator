@@ -4,7 +4,7 @@ uvicorn>=0.20.0
 pyyaml>=6.0
 
 # Interactive demo
-streamlit>=1.30.0
+streamlit>=1.65.0
 pandas>=2.0.0
 
 # Dev & testing
